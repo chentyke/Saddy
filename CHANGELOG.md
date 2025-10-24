@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Access logs and statistics
 - Prometheus monitoring interface
 
+## [1.0.2] - 2025-10-24
+
+### Fixed
+- 📦 Fixed release package missing web interface files
+  - Added web/static/ directory (app.js, style.css)
+  - Added web/templates/ directory (index.html, login.html)
+  - Added QUICKSTART.md for better user onboarding
+  - Added SECURITY.md to release package
+  - Fixed both GitHub Actions and local release scripts
+
+### Added
+- 📝 QUICKSTART.md - Quick start guide for new users
+- 🔧 Improved release packaging to include all necessary files
+
 ## [1.0.1] - 2025-10-24
 
 ### Fixed

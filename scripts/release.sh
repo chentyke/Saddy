@@ -92,29 +92,42 @@ create_archive() {
     local goarch=$2
     local binary_name="${APP_NAME}-${goos}-${goarch}"
     local archive_name="${APP_NAME}-${VERSION}-${goos}-${goarch}"
+    local temp_dir="${BUILD_DIR}/package-${goos}-${goarch}"
     
     if [ "$goos" = "windows" ]; then
         binary_name="${binary_name}.exe"
         archive_name="${archive_name}.zip"
-        
-        info "创建 Windows 压缩包..."
-        cd "$BUILD_DIR"
-        zip -q "../${RELEASE_DIR}/${archive_name}" \
-            "$binary_name" \
-            ../README.md \
-            ../LICENSE \
-            ../CHANGELOG.md \
-            ../configs/config.yaml.example
-        cd ..
     else
         archive_name="${archive_name}.tar.gz"
-        
-        info "创建 ${goos} 压缩包..."
-        tar -czf "${RELEASE_DIR}/${archive_name}" \
-            -C "$BUILD_DIR" "$binary_name" \
-            -C .. README.md LICENSE CHANGELOG.md \
-            -C configs config.yaml.example
     fi
+    
+    info "准备打包 ${goos}/${goarch}..."
+    
+    # 创建临时打包目录
+    mkdir -p "${temp_dir}/web"
+    
+    # 复制文件
+    cp "${BUILD_DIR}/${binary_name}" "${temp_dir}/"
+    cp README.md LICENSE CHANGELOG.md QUICKSTART.md SECURITY.md "${temp_dir}/"
+    cp -r configs "${temp_dir}/"
+    cp -r web/static "${temp_dir}/web/"
+    cp -r web/templates "${temp_dir}/web/"
+    
+    # 创建压缩包
+    if [ "$goos" = "windows" ]; then
+        info "创建 Windows 压缩包..."
+        cd "${temp_dir}"
+        zip -qr "../../${RELEASE_DIR}/${archive_name}" .
+        cd ../..
+    else
+        info "创建 ${goos} 压缩包..."
+        cd "${temp_dir}"
+        tar -czf "../../${RELEASE_DIR}/${archive_name}" .
+        cd ../..
+    fi
+    
+    # 清理临时目录
+    rm -rf "${temp_dir}"
     
     success "压缩包创建成功: ${archive_name}"
 }

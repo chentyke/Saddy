@@ -57,21 +57,20 @@ jobs:
 
       - name: Create archive
         run: |
+          mkdir -p release-package/web
+          cp ${{ matrix.output }} release-package/
+          cp README.md LICENSE CHANGELOG.md QUICKSTART.md SECURITY.md release-package/
+          cp -r configs release-package/
+          cp -r web/static release-package/web/
+          cp -r web/templates release-package/web/
+          
+          cd release-package
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            zip saddy-${{ steps.get_version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip \
-              ${{ matrix.output }} \
-              README.md \
-              LICENSE \
-              CHANGELOG.md \
-              configs/config.yaml.example
+            zip -r ../saddy-${{ steps.get_version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip .
           else
-            tar -czf saddy-${{ steps.get_version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
-              ${{ matrix.output }} \
-              README.md \
-              LICENSE \
-              CHANGELOG.md \
-              configs/config.yaml.example
+            tar -czf ../saddy-${{ steps.get_version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz .
           fi
+          cd ..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
