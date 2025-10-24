@@ -122,8 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For questions about these changes or for support, please:
 - Check the [documentation](README.md)
-- Create an [issue](https://github.com/yourusername/saddy/issues)
-- Start a [discussion](https://github.com/yourusername/saddy/discussions)
+- Create an [issue](https://github.com/chentyke/saddy/issues)
+- Start a [discussion](https://github.com/chentyke/saddy/discussions)
 
 ---
 

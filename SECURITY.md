@@ -132,8 +132,8 @@
 订阅安全更新：
 
 - Watch 本仓库以接收通知
-- 查看 [Releases](https://github.com/yourusername/saddy/releases) 页面
-- 关注 [Security Advisories](https://github.com/yourusername/saddy/security/advisories)
+- 查看 [Releases](https://github.com/chentyke/saddy/releases) 页面
+- 关注 [Security Advisories](https://github.com/chentyke/saddy/security/advisories)
 
 ## 致谢
 
