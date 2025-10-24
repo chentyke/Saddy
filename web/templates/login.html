@@ -203,29 +203,37 @@
             errorMessage.style.display = 'none';
 
             try {
-                // Test authentication
-                const response = await fetch('/api/v1/system/status', {
+                // Use dedicated login endpoint to avoid browser popup
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
                     headers: {
-                        'Authorization': 'Basic ' + btoa(username + ':' + password)
-                    }
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
                 });
 
-                if (response.ok) {
+                const data = await response.json();
+
+                if (response.ok && data.success) {
                     // Authentication successful
+                    const authToken = btoa(username + ':' + password);
                     if (rememberMe) {
-                        localStorage.setItem('saddy_auth', btoa(username + ':' + password));
+                        localStorage.setItem('saddy_auth', authToken);
                     } else {
-                        sessionStorage.setItem('saddy_auth', btoa(username + ':' + password));
+                        sessionStorage.setItem('saddy_auth', authToken);
                     }
 
                     // Redirect to main page
                     window.location.href = '/';
                 } else {
-                    throw new Error('Authentication failed');
+                    throw new Error(data.error || 'Authentication failed');
                 }
             } catch (error) {
                 // Show error message
-                errorMessage.textContent = 'Invalid username or password. Please try again.';
+                errorMessage.textContent = error.message || 'Invalid username or password. Please try again.';
                 errorMessage.style.display = 'block';
 
                 // Restore button state

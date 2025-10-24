@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Access logs and statistics
 - Prometheus monitoring interface
 
+## [1.0.1] - 2025-10-24
+
+### Fixed
+- 🐛 Fixed browser popup issue when entering wrong password on login page
+  - Replaced direct BasicAuth endpoint with dedicated login API
+  - Login errors now display on the page instead of triggering browser's system authentication dialog
+  - Improved user experience with proper error messaging
+
+### Changed
+- 🔧 Enhanced authentication handling for login page
+- ⚡ Optimized login flow to avoid WWW-Authenticate header response
+
 ## [1.0.0] - 2025-10-24
 
 ### Added

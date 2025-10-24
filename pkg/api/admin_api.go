@@ -82,6 +82,12 @@ func (a *AdminAPI) SetupRoutes(router *gin.RouterGroup) {
 		systemGroup.GET("/status", a.getSystemStatus)
 		systemGroup.GET("/health", a.getHealth)
 	}
+
+	// Auth endpoints (without BasicAuth middleware to avoid browser popup)
+	authGroup := router.Group("/auth")
+	{
+		authGroup.POST("/login", a.login)
+	}
 }
 
 func (a *AdminAPI) getConfig(c *gin.Context) {
@@ -414,5 +420,26 @@ func checkHTTPS(domain string) gin.H {
 		"accessible":  true,
 		"status_code": resp.StatusCode,
 		"tls_version": resp.TLS.Version,
+	}
+}
+
+// login handles user authentication without triggering browser's HTTP Basic Auth popup.
+func (a *AdminAPI) login(c *gin.Context) {
+	var credentials struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&credentials); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Check credentials
+	if credentials.Username == a.config.WebUI.Username && credentials.Password == a.config.WebUI.Password {
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	} else {
+		// Return 401 without WWW-Authenticate header to prevent browser popup
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 	}
 }
