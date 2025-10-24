@@ -42,7 +42,7 @@ saddy-windows-amd64.exe -config config.yaml
 #### Docker
 
 ```bash
-docker pull yourusername/saddy:latest
+docker pull chentyke/saddy:latest
 docker run -d \
   -p 80:80 \
   -p 443:443 \
@@ -50,7 +50,7 @@ docker run -d \
   -p 8081:8081 \
   -v $(pwd)/configs:/app/configs:ro \
   -v saddy-certs:/app/certs \
-  yourusername/saddy:latest
+  chentyke/saddy:latest
 ```
 
 ### ✨ Key Features
@@ -65,28 +65,28 @@ docker run -d \
 
 ### 📋 What's New
 
-Please see [CHANGELOG.md](https://github.com/yourusername/saddy/blob/main/CHANGELOG.md) for detailed changes.
+Please see [CHANGELOG.md](https://github.com/chentyke/saddy/blob/main/CHANGELOG.md) for detailed changes.
 
 ### 📚 Documentation
 
-- [Usage Guide](https://github.com/yourusername/saddy#readme)
-- [Configuration Guide](https://github.com/yourusername/saddy/blob/main/docs/README.md)
-- [API Documentation](https://github.com/yourusername/saddy/blob/main/docs/README.md)
-- [Contributing Guide](https://github.com/yourusername/saddy/blob/main/CONTRIBUTING.md)
+- [Usage Guide](https://github.com/chentyke/saddy#readme)
+- [Configuration Guide](https://github.com/chentyke/saddy/blob/main/docs/README.md)
+- [API Documentation](https://github.com/chentyke/saddy/blob/main/docs/README.md)
+- [Contributing Guide](https://github.com/chentyke/saddy/blob/main/CONTRIBUTING.md)
 
 ### 🐛 Issue Reporting
 
 If you encounter issues, please:
-- Check existing [Issues](https://github.com/yourusername/saddy/issues)
-- Submit a new [Bug Report](https://github.com/yourusername/saddy/issues/new?template=bug_report.md)
+- Check existing [Issues](https://github.com/chentyke/saddy/issues)
+- Submit a new [Bug Report](https://github.com/chentyke/saddy/issues/new?template=bug_report.md)
 
 ### 🤝 Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](https://github.com/yourusername/saddy/blob/main/CONTRIBUTING.md)
+Contributions are welcome! Please see [CONTRIBUTING.md](https://github.com/chentyke/saddy/blob/main/CONTRIBUTING.md)
 
 ### 📄 License
 
-MIT License - see [LICENSE](https://github.com/yourusername/saddy/blob/main/LICENSE)
+MIT License - see [LICENSE](https://github.com/chentyke/saddy/blob/main/LICENSE)
 
 ---
 
