@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saddy - Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            background: hsl(var(--background));
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: hsl(var(--foreground));
+            font-size: 1.875rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .login-header p {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: hsl(var(--foreground));
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            transition: all 0.15s ease;
+            background: hsl(var(--background));
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: hsl(var(--ring));
+            box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+        }
+
+        .btn-login {
+            width: 100%;
+            background: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            border: none;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-login:hover {
+            background: hsl(var(--primary) / 0.9);
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: hsl(var(--destructive) / 0.1);
+            border: 1px solid hsl(var(--destructive) / 0.2);
+            color: hsl(var(--destructive));
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+            display: none;
+            font-size: 0.875rem;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .remember-me input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+
+        .remember-me label {
+            margin: 0;
+            color: hsl(var(--foreground));
+            font-size: 0.875rem;
+        }
+
+        .logo {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid hsl(var(--primary-foreground));
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="logo">S</div>
+            <h1>Saddy</h1>
+            <p>Reverse Proxy Management Panel</p>
+        </div>
+
+        <div id="error-message" class="error-message"></div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username" style="display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500;">Username</label>
+                <input type="text" id="username" class="form-control" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="password" style="display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500;">Password</label>
+                <input type="password" id="password" class="form-control" required>
+            </div>
+
+            <div class="remember-me">
+                <input type="checkbox" id="remember">
+                <label for="remember" style="margin: 0; color: #666;">Remember Me</label>
+            </div>
+
+            <button type="submit" class="btn-login" id="login-btn">
+                <span id="btn-text">Login</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // Check if already logged in
+        if (localStorage.getItem('saddy_auth')) {
+            window.location.href = '/';
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember').checked;
+            const loginBtn = document.getElementById('login-btn');
+            const btnText = document.getElementById('btn-text');
+            const errorMessage = document.getElementById('error-message');
+
+            // Show loading state
+            loginBtn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span>Logging in...';
+            errorMessage.style.display = 'none';
+
+            try {
+                // Test authentication
+                const response = await fetch('/api/v1/system/status', {
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(username + ':' + password)
+                    }
+                });
+
+                if (response.ok) {
+                    // Authentication successful
+                    if (rememberMe) {
+                        localStorage.setItem('saddy_auth', btoa(username + ':' + password));
+                    } else {
+                        sessionStorage.setItem('saddy_auth', btoa(username + ':' + password));
+                    }
+
+                    // Redirect to main page
+                    window.location.href = '/';
+                } else {
+                    throw new Error('Authentication failed');
+                }
+            } catch (error) {
+                // Show error message
+                errorMessage.textContent = 'Invalid username or password. Please try again.';
+                errorMessage.style.display = 'block';
+
+                // Restore button state
+                loginBtn.disabled = false;
+                btnText.textContent = 'Login';
+
+                // Clear password field
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        });
+
+        // Submit on Enter key
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('login-form').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

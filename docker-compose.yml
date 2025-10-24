@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  saddy:
+    build: .
+    ports:
+      - "8080:8080"    # Reverse proxy port
+      - "8081:8081"    # Admin interface port
+      - "80:80"        # HTTP for Let's Encrypt challenges
+      - "443:443"      # HTTPS
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./certs:/app/certs
+      - ./logs:/app/logs
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - saddy-network
+
+  # Example backend service 1
+  backend1:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./examples/backend1:/usr/share/nginx/html:ro
+    networks:
+      - saddy-network
+
+  # Example backend service 2
+  backend2:
+    image: httpd:alpine
+    ports:
+      - "3001:80"
+    volumes:
+      - ./examples/backend2:/usr/local/apache2/htdocs:ro
+    networks:
+      - saddy-network
+
+networks:
+  saddy-network:
+    driver: bridge
+
+volumes:
+  certs:
+  logs:

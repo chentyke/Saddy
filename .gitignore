@@ -1,0 +1,66 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Build artifacts
+/build/
+/dist/
+/release/
+/saddy
+/saddy-*
+
+# Configuration files with secrets
+config.yaml.local
+*.local.yaml
+
+# TLS/SSL certificates and keys
+/certs/
+*.pem
+*.key
+*.crt
+
+# Logs
+/logs/
+*.log
+
+# Cache
+/cache/
+*.cache
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Distribution archives
+*.tar.gz
+*.zip
+*.tgz
+
+# OS generated files
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+

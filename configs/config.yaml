@@ -1,0 +1,24 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  admin_port: 8081
+  auto_https: true
+  tls:
+    email: "admin@example.com"
+    cache_dir: "./certs"
+
+proxy:
+  rules: []
+
+cache:
+  default_ttl: 300
+  max_size: "500MB"
+  cleanup_interval: 600
+  storage_type: "file"         # Options: "memory", "file", "persistent"
+  cache_dir: "./cache"          # Directory for persistent cache (only for file storage)
+  persistent: true              # If true, cache never expires (manual refresh only)
+
+web_ui:
+  enabled: true
+  username: "admin"
+  password: "admin123"

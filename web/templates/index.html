@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saddy - Web Configuration Panel</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Saddy Configuration Panel</h1>
+        <div style="position: absolute; right: 2rem; top: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+            <span id="user-info" style="color: hsl(var(--muted-foreground)); margin-right: 1rem;">admin</span>
+            <button id="logout-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="alerts"></div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+            <button class="nav-tab" onclick="showTab('proxy')">Proxy Rules</button>
+            <button class="nav-tab" onclick="showTab('cache')">Cache</button>
+            <button class="nav-tab" onclick="showTab('tls')">SSL/TLS</button>
+            <button class="nav-tab" onclick="showTab('settings')">Settings</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="proxy-count">-</div>
+                    <div class="stat-label">Proxy Rules</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="cache-size">-</div>
+                    <div class="stat-label">Cache Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="tls-domains">-</div>
+                    <div class="stat-label">TLS Domains</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="server-status">-</div>
+                    <div class="stat-label">Server Status</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>System Status</h2>
+                <div id="system-status">
+                    <div class="loading"></div> Loading system status...
+                </div>
+            </div>
+        </div>
+
+        <!-- Proxy Rules Tab -->
+        <div id="proxy" class="tab-content">
+            <div class="card">
+                <h2>Proxy Rules</h2>
+                <button class="btn" onclick="showAddProxyModal()">Add New Rule</button>
+
+                <div id="proxy-rules">
+                    <div class="loading"></div> Loading proxy rules...
+                </div>
+            </div>
+        </div>
+
+        <!-- Cache Tab -->
+        <div id="cache" class="tab-content">
+            <div class="card">
+                <h2>Cache Statistics</h2>
+                <div id="cache-stats">
+                    <div class="loading"></div> Loading cache statistics...
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn btn-destructive" onclick="clearCache()">Clear Cache</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSL/TLS Tab -->
+        <div id="tls" class="tab-content">
+            <div class="card">
+                <h2>SSL/TLS Certificates</h2>
+                <button class="btn" onclick="showAddTLSModal()">Add Domain</button>
+
+                <div id="tls-domains-list">
+                    <div class="loading"></div> Loading TLS domains...
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <div class="card">
+                <h2>Server Settings</h2>
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label for="server-host">Server Host</label>
+                        <input type="text" id="server-host" class="form-control" value="0.0.0.0">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="server-port">Server Port</label>
+                            <input type="number" id="server-port" class="form-control" value="8080">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="admin-port">Admin Port</label>
+                            <input type="number" id="admin-port" class="form-control" value="8081">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="switch">
+                            <input type="checkbox" id="auto-https">
+                            <span class="slider"></span>
+                        </label>
+                        <span style="margin-left: 1rem;">Auto HTTPS</span>
+                    </div>
+
+                    <button type="submit" class="btn">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Proxy Modal -->
+    <div id="add-proxy-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('add-proxy-modal')">&times;</span>
+            <h2>Add Proxy Rule</h2>
+            <form id="add-proxy-form">
+                <div class="form-group">
+                    <label for="proxy-domain">Domain</label>
+                    <input type="text" id="proxy-domain" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxy-target">Target URL</label>
+                    <input type="url" id="proxy-target" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="proxy-cache">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Enable Cache</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="proxy-ttl">Cache TTL (seconds)</label>
+                        <input type="number" id="proxy-ttl" class="form-control" value="300">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="proxy-max-size">Max Cache Size</label>
+                        <input type="text" id="proxy-max-size" class="form-control" value="100MB">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="proxy-ssl">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Enable SSL</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="proxy-force-https">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Force HTTPS</span>
+                </div>
+
+                <button type="submit" class="btn">Add Rule</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add TLS Modal -->
+    <div id="add-tls-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('add-tls-modal')">&times;</span>
+            <h2>Add TLS Domain</h2>
+            <form id="add-tls-form">
+                <div class="form-group">
+                    <label for="tls-domain">Domain</label>
+                    <input type="text" id="tls-domain" class="form-control" required>
+                </div>
+
+                <button type="submit" class="btn">Add Domain</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Proxy Modal -->
+    <div id="edit-proxy-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('edit-proxy-modal')">&times;</span>
+            <h2>Edit Proxy Rule</h2>
+            <form id="edit-proxy-form">
+                <input type="hidden" id="edit-proxy-domain">
+                
+                <div class="form-group">
+                    <label for="edit-proxy-domain-display">Domain</label>
+                    <input type="text" id="edit-proxy-domain-display" class="form-control" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-proxy-target">Target URL</label>
+                    <input type="url" id="edit-proxy-target" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="edit-proxy-cache">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Enable Cache</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-proxy-ttl">Cache TTL (seconds)</label>
+                        <input type="number" id="edit-proxy-ttl" class="form-control" value="300">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-proxy-max-size">Max Cache Size</label>
+                        <input type="text" id="edit-proxy-max-size" class="form-control" value="100MB">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="edit-proxy-ssl">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Enable SSL</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="edit-proxy-force-https">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="margin-left: 1rem;">Force HTTPS</span>
+                </div>
+
+                <button type="submit" class="btn">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Domain Status Modal -->
+    <div id="domain-status-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close" onclick="closeModal('domain-status-modal')">&times;</span>
+            <h2 id="domain-status-title">Domain Status Check</h2>
+            <div id="domain-status-content">
+                <div class="loading"></div> Checking domain status...
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

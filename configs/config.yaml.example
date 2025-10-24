@@ -1,0 +1,100 @@
+# Saddy 配置文件示例
+# 复制此文件为 config.yaml 并根据需要修改
+
+# 服务器配置
+server:
+  host: "0.0.0.0"          # 监听地址，0.0.0.0 表示监听所有网卡
+  port: 8080               # HTTP 代理端口
+  admin_port: 8081         # 管理界面端口
+  auto_https: false        # 是否启用自动 HTTPS（生产环境建议启用）
+  
+  # TLS/HTTPS 配置
+  tls:
+    email: "admin@example.com"    # Let's Encrypt 通知邮箱（必填）
+    cache_dir: "./certs"          # 证书缓存目录
+
+# 反向代理规则配置
+proxy:
+  rules:
+    # 示例 1: 基本反向代理
+    - domain: "localhost"
+      target: "http://localhost:3000"
+      cache:
+        enabled: true
+        ttl: 300                  # 缓存时间（秒）
+        max_size: "100MB"         # 单个域名最大缓存大小
+      ssl:
+        enabled: false            # 本地测试不需要 SSL
+        force_https: false
+    
+    # 示例 2: 带 HTTPS 的生产环境配置
+    # - domain: "example.com"
+    #   target: "http://localhost:3000"
+    #   cache:
+    #     enabled: true
+    #     ttl: 600                # 10 分钟缓存
+    #     max_size: "200MB"
+    #   ssl:
+    #     enabled: true
+    #     force_https: true       # 强制 HTTPS 重定向
+    
+    # 示例 3: API 服务（较长缓存时间）
+    # - domain: "api.example.com"
+    #   target: "http://localhost:3001"
+    #   cache:
+    #     enabled: true
+    #     ttl: 1800               # 30 分钟缓存
+    #     max_size: "500MB"
+    #   ssl:
+    #     enabled: true
+    #     force_https: true
+    
+    # 示例 4: 静态内容服务（长缓存）
+    # - domain: "static.example.com"
+    #   target: "http://localhost:3002"
+    #   cache:
+    #     enabled: true
+    #     ttl: 86400              # 24 小时缓存
+    #     max_size: "1GB"
+    #   ssl:
+    #     enabled: true
+    #     force_https: true
+
+# 缓存配置
+cache:
+  # 默认缓存时间（秒）
+  # 注意：如果 persistent=true，此值将被忽略
+  default_ttl: 300
+  
+  # 最大缓存大小
+  max_size: "500MB"
+  
+  # 缓存清理间隔（秒）
+  # 仅对 memory 类型有效
+  cleanup_interval: 600
+  
+  # 存储类型
+  # - "memory": 内存缓存（快速，重启后丢失）
+  # - "file": 文件缓存（持久化，稍慢）
+  storage_type: "file"
+  
+  # 缓存目录（仅 file 类型）
+  cache_dir: "./cache"
+  
+  # 持久化缓存
+  # true: 缓存永不过期，只能手动刷新
+  # false: 按 TTL 自动过期
+  persistent: true
+
+# Web 管理界面配置
+web_ui:
+  enabled: true
+  username: "admin"              # 管理员用户名
+  password: "admin123"           # 管理员密码（⚠️ 生产环境请务必修改！）
+
+# 环境变量覆盖说明：
+# 可以使用以下环境变量覆盖配置：
+#   SADDY_ADMIN_USERNAME    - 管理员用户名
+#   SADDY_ADMIN_PASSWORD    - 管理员密码
+#   SADDY_TLS_EMAIL         - TLS 邮箱
+#   SADDY_AUTO_HTTPS        - 是否启用 HTTPS (true/false)

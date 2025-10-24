@@ -1,0 +1,125 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+  
+  # Exit code when at least one issue was found
+  issues-exit-code: 1
+  
+  # Include test files
+  tests: true
+
+  # Which dirs to skip: issues from them won't be reported
+  skip-dirs:
+    - vendor
+    - build
+    - dist
+
+  # Which files to skip: they will be analyzed, but issues from them won't be reported
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+linters:
+  enable:
+    - errcheck      # Checking for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detects unused assignments
+    - staticcheck   # Static analysis
+    - unused        # Checks for unused constants, variables, functions and types
+    - gofmt         # Checks whether code was gofmt-ed
+    - goimports     # Check import statements are formatted according to the goimport command
+    - misspell      # Finds commonly misspelled English words
+    - goconst       # Finds repeated strings that could be replaced by a constant
+    - gocyclo       # Computes cyclomatic complexities
+    - gosec         # Inspects source code for security problems
+    - revive        # Fast, configurable, extensible, flexible linter
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Reports unused function parameters
+
+  disable:
+    - typecheck     # Can be too strict sometimes
+
+linters-settings:
+  errcheck:
+    # Report about not checking of errors in type assertions: `a := b.(MyStruct)`;
+    check-type-assertions: true
+    
+    # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+    check-blank: true
+
+  govet:
+    # Report about shadowed variables
+    check-shadowing: true
+
+  gofmt:
+    # Simplify code: gofmt with `-s` option
+    simplify: true
+
+  goimports:
+    # Put imports beginning with prefix after 3rd-party packages
+    local-prefixes: saddy
+
+  gocyclo:
+    # Minimal cyclomatic complexity to report
+    min-complexity: 15
+
+  misspell:
+    # Locale to use
+    locale: US
+
+  goconst:
+    # Minimal length of string constant
+    min-len: 3
+    # Minimum occurrences count to trigger
+    min-occurrences: 3
+
+  gosec:
+    # To select a subset of rules to run
+    includes: []
+    # To specify rules to explicitly exclude
+    excludes:
+      - G404 # Weak random number generator (we're not using it for security)
+      - G304 # File inclusion via variable (we need dynamic file paths)
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+  
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+  
+  # Show only new issues
+  new: false
+  
+  # Exclude some linters from running on tests files
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - gosec
+        - goconst
+
+    # Exclude known linters from partially hard-vendored code
+    - path: internal/hmac/
+      linters:
+        - gosec
+
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+
+    # Exclude CacheItem naming suggestion (it's clear enough)
+    - linters:
+        - revive
+      text: "type name will be used as cache.CacheItem"
+
+  # Independently from option `exclude` we use default exclude patterns
+  exclude-use-default: false
+
