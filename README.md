@@ -4,8 +4,8 @@
 
 **Lightweight Reverse Proxy Server**
 
-[![GitHub release](https://img.shields.io/github/release/yourusername/saddy.svg)](https://github.com/yourusername/saddy/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/saddy)](https://goreportcard.com/report/github.com/yourusername/saddy)
+[![GitHub release](https://img.shields.io/github/release/chentyke/saddy.svg)](https://github.com/chentyke/saddy/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/chentyke/saddy)](https://goreportcard.com/report/github.com/chentyke/saddy)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 
@@ -37,7 +37,7 @@ Saddy is a lightweight reverse proxy server written in Go, providing automatic H
 
 ```bash
 # Clone the project
-git clone https://github.com/yourusername/saddy.git
+git clone https://github.com/chentyke/saddy.git
 cd saddy
 
 # Start with Docker Compose
@@ -53,7 +53,7 @@ Visit `http://localhost:8081` to open the management interface.
 
 ```bash
 # 1. Clone the project
-git clone https://github.com/yourusername/saddy.git
+git clone https://github.com/chentyke/saddy.git
 cd saddy
 
 # 2. Download dependencies
@@ -492,21 +492,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Changelog](CHANGELOG.md)
 - [Contributing Guide](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
-- [Issue Tracker](https://github.com/yourusername/saddy/issues)
-- [Discussions](https://github.com/yourusername/saddy/discussions)
+- [Issue Tracker](https://github.com/chentyke/saddy/issues)
+- [Discussions](https://github.com/chentyke/saddy/discussions)
 
 ## ⭐ Star History
 
 If this project helps you, please give us a Star!
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/saddy&type=Date)](https://star-history.com/#yourusername/saddy&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=chentyke/saddy&type=Date)](https://star-history.com/#chentyke/saddy&Date)
 
 ## 📧 Contact
 
 For questions or suggestions, please:
 
-- Create an [Issue](https://github.com/yourusername/saddy/issues)
-- Start a [Discussion](https://github.com/yourusername/saddy/discussions)
+- Create an [Issue](https://github.com/chentyke/saddy/issues)
+- Start a [Discussion](https://github.com/chentyke/saddy/discussions)
 
 ---
 
