@@ -2,11 +2,14 @@
 package web
 
 import (
+	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"saddy/pkg/api"
+	"saddy/pkg/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,15 +22,17 @@ const (
 type AdminServer struct {
 	engine *gin.Engine
 	api    *api.AdminAPI
+	config *config.Config
 }
 
 // NewAdminServer creates a new admin server instance with the given API.
-func NewAdminServer(adminAPI *api.AdminAPI) *AdminServer {
+func NewAdminServer(adminAPI *api.AdminAPI, cfg *config.Config) *AdminServer {
 	gin.SetMode(gin.ReleaseMode)
 
 	server := &AdminServer{
 		engine: gin.New(),
 		api:    adminAPI,
+		config: cfg,
 	}
 
 	server.setupRoutes()
@@ -75,6 +80,18 @@ func (s *AdminServer) setupRoutes() {
 			return
 		}
 
+		// Validate credentials against config
+		username, password, err := decodeBasicAuth(auth)
+		if err != nil || !s.validateCredentials(username, password) {
+			// Invalid credentials, redirect to login for browser requests
+			if c.GetHeader("Accept") == "" || strings.Contains(c.GetHeader("Accept"), "text/html") {
+				c.Redirect(http.StatusFound, "/login")
+				return
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication"})
+			return
+		}
+
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
@@ -91,4 +108,35 @@ func (s *AdminServer) Start(addr string) error {
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
 	}
 	return server.ListenAndServe()
+}
+
+// decodeBasicAuth decodes a Basic Auth header and returns username and password.
+func decodeBasicAuth(auth string) (string, string, error) {
+	const prefix = "Basic "
+	if !strings.HasPrefix(auth, prefix) {
+		return "", "", fmt.Errorf("invalid authorization header format")
+	}
+
+	// Decode the base64 part
+	encoded := strings.TrimPrefix(auth, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Split username:password
+	parts := strings.SplitN(string(decoded), ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid authorization header content")
+	}
+
+	return parts[0], parts[1], nil
+}
+
+// validateCredentials checks if the provided username and password match the configured ones.
+func (s *AdminServer) validateCredentials(username, password string) bool {
+	if s.config == nil {
+		return false
+	}
+	return username == s.config.WebUI.Username && password == s.config.WebUI.Password
 }

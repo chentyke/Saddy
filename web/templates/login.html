@@ -183,7 +183,8 @@
 
     <script>
         // Check if already logged in
-        if (localStorage.getItem('saddy_auth')) {
+        const storedAuth = localStorage.getItem('saddy_auth') || sessionStorage.getItem('saddy_auth');
+        if (storedAuth) {
             window.location.href = '/';
         }
 
@@ -220,11 +221,17 @@
                 if (response.ok && data.success) {
                     // Authentication successful
                     const authToken = btoa(username + ':' + password);
+                    const maxAge = 30 * 24 * 60 * 60; // 30 days
+
                     if (rememberMe) {
                         localStorage.setItem('saddy_auth', authToken);
                     } else {
                         sessionStorage.setItem('saddy_auth', authToken);
                     }
+
+                    // Ensure cookie matches current auth for server side checks
+                    document.cookie = 'saddy_auth=; Max-Age=0; Path=/; SameSite=Lax';
+                    document.cookie = `saddy_auth=${authToken}; Path=/; SameSite=Lax${rememberMe ? `; Max-Age=${maxAge}` : ''}`;
 
                     // Redirect to main page
                     window.location.href = '/';

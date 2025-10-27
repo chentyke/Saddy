@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('logout-btn').addEventListener('click', function() {
         localStorage.removeItem('saddy_auth');
         sessionStorage.removeItem('saddy_auth');
+        document.cookie = 'saddy_auth=; Max-Age=0; Path=/; SameSite=Lax';
         window.location.href = '/login';
     });
 
@@ -130,6 +131,7 @@ async function apiRequest(endpoint, options = {}) {
         if (response.status === 401) {
             localStorage.removeItem('saddy_auth');
             sessionStorage.removeItem('saddy_auth');
+            document.cookie = 'saddy_auth=; Max-Age=0; Path=/; SameSite=Lax';
             window.location.href = '/login';
             return;
         }

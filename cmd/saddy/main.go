@@ -49,7 +49,7 @@ func main() {
 	// Initialize servers
 	reverseProxy := proxy.NewReverseProxy(cfg, cacheInstance)
 	adminAPI := api.NewAdminAPI(cfg, cacheInstance, tlsInstance)
-	adminServer := web.NewAdminServer(adminAPI)
+	adminServer := web.NewAdminServer(adminAPI, cfg)
 
 	// Start servers and wait for shutdown
 	runServers(cfg, reverseProxy, adminServer, tlsInstance, cacheInstance)
