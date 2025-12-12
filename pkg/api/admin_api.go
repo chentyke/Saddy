@@ -6,6 +6,7 @@ package api
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -405,9 +406,15 @@ func (a *AdminAPI) refreshCacheForURL(target *url.URL, host string) error {
 	if err != nil {
 		return fmt.Errorf("refresh request failed: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 
-	_, _ = io.Copy(io.Discard, resp.Body)
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		log.Printf("Failed to discard response body: %v", err)
+	}
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("refresh request returned status %d", resp.StatusCode)
