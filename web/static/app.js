@@ -1,6 +1,11 @@
 // API Configuration
 const API_BASE = '/api/v1';
 
+// Traffic chart instances
+let trafficVisitsChart = null;
+let trafficBandwidthChart = null;
+let currentTrafficRange = '24h';
+
 // Authentication
 function getAuthHeaders() {
     const auth = localStorage.getItem('saddy_auth') || sessionStorage.getItem('saddy_auth');
@@ -42,6 +47,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadProxyRules();
     loadCacheStats();
     loadTLSDomains();
+    setupTrafficCharts();
+    loadTrafficStats(currentTrafficRange);
 
     // Set up form handlers
     document.getElementById('settings-form').addEventListener('submit', saveSettings);
@@ -49,9 +56,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('edit-proxy-form').addEventListener('submit', updateProxyRule);
     document.getElementById('add-tls-form').addEventListener('submit', addTLSDomain);
 
+    const cacheInvalidateForm = document.getElementById('cache-invalidate-form');
+    if (cacheInvalidateForm) {
+        cacheInvalidateForm.addEventListener('submit', invalidateCacheByUrl);
+    }
+
+    const trafficRangeSelect = document.getElementById('traffic-range');
+    if (trafficRangeSelect) {
+        trafficRangeSelect.addEventListener('change', (event) => {
+            currentTrafficRange = event.target.value || '24h';
+            loadTrafficStats(currentTrafficRange);
+        });
+    }
+
     // Auto-refresh every 30 seconds
     setInterval(loadSystemStatus, 30000);
     setInterval(loadCacheStats, 30000);
+    setInterval(() => loadTrafficStats(currentTrafficRange), 60000);
 });
 
 // Tab Management
@@ -195,6 +216,312 @@ function updateSystemStatus(status) {
     document.getElementById('system-status').innerHTML = statusHtml;
 }
 
+// Traffic Statistics
+function setupTrafficCharts() {
+    if (typeof Chart === 'undefined') {
+        return;
+    }
+
+    const visitsCanvas = document.getElementById('traffic-visits-chart');
+    if (visitsCanvas && !trafficVisitsChart) {
+        trafficVisitsChart = new Chart(visitsCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Page Views',
+                        data: [],
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: 'Unique Visitors',
+                        data: [],
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        tension: 0.3,
+                        fill: false,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    const bandwidthCanvas = document.getElementById('traffic-bandwidth-chart');
+    if (bandwidthCanvas && !trafficBandwidthChart) {
+        trafficBandwidthChart = new Chart(bandwidthCanvas.getContext('2d'), {
+            type: 'bar', // Root type required for Chart.js 4; datasets can override
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Bandwidth (MB)',
+                        data: [],
+                        borderRadius: 6,
+                        backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        yAxisID: 'bandwidth',
+                    },
+                    {
+                        type: 'line',
+                        label: 'Cache Hit Rate (%)',
+                        data: [],
+                        borderColor: 'rgba(249, 115, 22, 1)',
+                        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                        tension: 0.3,
+                        fill: true,
+                        yAxisID: 'hitRate',
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                },
+                scales: {
+                    bandwidth: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => `${value}`,
+                        },
+                    },
+                    hitRate: {
+                        type: 'linear',
+                        position: 'right',
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100,
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        ticks: {
+                            callback: (value) => `${value}%`,
+                        },
+                    },
+                },
+            },
+        });
+    }
+}
+
+async function loadTrafficStats(rangeOverride) {
+    if (typeof Chart === 'undefined') {
+        return;
+    }
+
+    const range = rangeOverride || currentTrafficRange || '24h';
+    currentTrafficRange = range;
+
+    try {
+        const data = await apiRequest(`/stats/traffic?range=${encodeURIComponent(range)}`);
+        if (!data) {
+            return;
+        }
+
+        updateTrafficSummary(data);
+        const hasData = Array.isArray(data.points) && data.points.length > 0;
+        toggleTrafficEmptyState(hasData);
+        if (hasData) {
+            updateTrafficCharts(data);
+        } else {
+            clearTrafficCharts();
+        }
+    } catch (error) {
+        console.error('Failed to load traffic statistics', error);
+    }
+}
+
+function updateTrafficSummary(summary) {
+    const visitsEl = document.getElementById('traffic-total-visits');
+    const visitorsEl = document.getElementById('traffic-unique-visitors');
+    const bandwidthEl = document.getElementById('traffic-bandwidth');
+    const cacheHitRateEl = document.getElementById('traffic-cache-hit-rate');
+
+    if (!visitsEl || !visitorsEl || !bandwidthEl || !cacheHitRateEl) {
+        return;
+    }
+
+    visitsEl.textContent = (summary.total_visits || 0).toLocaleString();
+    visitorsEl.textContent = (summary.unique_visitors || 0).toLocaleString();
+    bandwidthEl.textContent = formatBytes(summary.bandwidth_bytes || 0);
+    cacheHitRateEl.textContent = formatPercentage(summary.cache_hit_rate || 0);
+}
+
+function updateTrafficCharts(summary) {
+    if (!trafficVisitsChart || !trafficBandwidthChart) {
+        setupTrafficCharts();
+    }
+
+    if (!trafficVisitsChart || !trafficBandwidthChart) {
+        return;
+    }
+
+    const labels = summary.points.map((point) =>
+        formatTrafficLabel(point.timestamp, summary.range_seconds),
+    );
+    const visitsData = summary.points.map((point) => point.visits || 0);
+    const uniqueData = summary.points.map((point) => point.unique_visitors || 0);
+    const bandwidthData = summary.points.map((point) =>
+        parseFloat(((point.bandwidth_bytes || 0) / (1024 * 1024)).toFixed(2)),
+    );
+    const hitRateData = summary.points.map((point) =>
+        parseFloat(((point.cache_hit_rate || 0) * 100).toFixed(2)),
+    );
+
+    trafficVisitsChart.data.labels = labels;
+    trafficVisitsChart.data.datasets[0].data = visitsData;
+    trafficVisitsChart.data.datasets[1].data = uniqueData;
+    trafficVisitsChart.update('none');
+
+    trafficBandwidthChart.data.labels = labels;
+    trafficBandwidthChart.data.datasets[0].data = bandwidthData;
+    trafficBandwidthChart.data.datasets[1].data = hitRateData;
+    trafficBandwidthChart.update('none');
+}
+
+function clearTrafficCharts() {
+    if (trafficVisitsChart) {
+        trafficVisitsChart.data.labels = [];
+        trafficVisitsChart.data.datasets.forEach((dataset) => {
+            dataset.data = [];
+        });
+        trafficVisitsChart.update('none');
+    }
+
+    if (trafficBandwidthChart) {
+        trafficBandwidthChart.data.labels = [];
+        trafficBandwidthChart.data.datasets.forEach((dataset) => {
+            dataset.data = [];
+        });
+        trafficBandwidthChart.update('none');
+    }
+}
+
+function toggleTrafficEmptyState(hasData) {
+    const emptyState = document.getElementById('traffic-empty');
+    const chartContainers = document.querySelectorAll('#traffic .chart-container');
+
+    if (!emptyState) {
+        return;
+    }
+
+    emptyState.style.display = hasData ? 'none' : 'block';
+
+    chartContainers.forEach((container) => {
+        container.style.display = hasData ? 'block' : 'none';
+    });
+}
+
+function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) {
+        return '0 B';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value = bytes;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+    }
+
+    const precision = value >= 100 || unitIndex === 0 ? 0 : 1;
+    return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function formatTimespan(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return 'Disabled';
+    }
+
+    if (seconds < 60) {
+        return `${seconds.toFixed(0)}s`;
+    }
+
+    const units = [
+        { label: 'day', seconds: 86400 },
+        { label: 'hour', seconds: 3600 },
+        { label: 'minute', seconds: 60 },
+    ];
+
+    for (const unit of units) {
+        if (seconds >= unit.seconds) {
+            const value = seconds / unit.seconds;
+            const formatted = value >= 10 ? Math.round(value) : parseFloat(value.toFixed(1));
+            return `${formatted} ${unit.label}${formatted !== 1 ? 's' : ''}`;
+        }
+    }
+
+    return `${seconds.toFixed(0)}s`;
+}
+
+function formatPercentage(value) {
+    const percent = Number(value || 0) * 100;
+    return `${percent.toFixed(percent >= 100 || percent === 0 ? 0 : 1)}%`;
+}
+
+function formatTrafficLabel(timestamp, rangeSeconds) {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    if (!rangeSeconds) {
+        rangeSeconds = 24 * 3600;
+    }
+
+    if (rangeSeconds <= 48 * 3600) {
+        return date.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+
+    return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+    });
+}
+
 // Proxy Rules
 async function loadProxyRules() {
     try {
@@ -320,24 +647,94 @@ async function loadCacheStats() {
 }
 
 function displayCacheStats(stats) {
+    if (!stats) {
+        document.getElementById('cache-stats').innerHTML =
+            '<p style="color: red;">Cache statistics unavailable.</p>';
+        return;
+    }
+
+    const storageType = (stats.storage_type || 'unknown').toString().toLowerCase();
+    const isPersistent = Boolean(stats.persistent);
+    const defaultTTLSeconds = Number(stats.default_ttl_seconds || 0);
+    const cleanupSeconds = Number(stats.cleanup_interval_seconds || 0);
+    const maxSizeMB = stats.max_size ? (stats.max_size / 1024 / 1024).toFixed(0) : '—';
+    const currentSizeMB = stats.current_size ? (stats.current_size / 1024 / 1024).toFixed(2) : '0.00';
+    const usagePercent = Number.isFinite(stats.usage_percent) ? stats.usage_percent.toFixed(1) : '0.0';
+
+    const backendLabel = (() => {
+        if (storageType === 'file') {
+            return isPersistent ? 'Persistent file cache' : 'File cache (TTL-based)';
+        }
+        if (storageType === 'memory') {
+            return 'In-memory cache';
+        }
+        return 'Custom cache backend';
+    })();
+
+    const ttlLabel = isPersistent
+        ? 'Disabled (manual refresh only)'
+        : formatTimespan(defaultTTLSeconds);
+
+    const cleanupLabel = storageType === 'memory'
+        ? formatTimespan(cleanupSeconds)
+        : 'Not applicable';
+
+    const locationLabel = storageType === 'file'
+        ? (stats.cache_dir || '(not configured)')
+        : 'In process memory';
+
+    const guidance = (() => {
+        if (storageType === 'file' && isPersistent) {
+            return 'Entries stay on disk until you clear them manually or they are evicted for space. Use targeted cache control above to refresh a single page.';
+        }
+        if (storageType === 'file') {
+            return 'Entries persist to disk but expire automatically after the configured TTL. Increase TTL for more aggressive caching, or disable caching per proxy rule.';
+        }
+        return 'Entries live only in memory and expire automatically after the TTL. Restarting the proxy clears all cached content.';
+    })();
+
     const statsHtml = `
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value">${stats.items_count}</div>
+                <div class="stat-value">${stats.items_count ?? 0}</div>
                 <div class="stat-label">Cached Items</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${(stats.current_size / 1024 / 1024).toFixed(2)}MB</div>
+                <div class="stat-value">${currentSizeMB}MB</div>
                 <div class="stat-label">Current Size</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${(stats.max_size / 1024 / 1024).toFixed(0)}MB</div>
+                <div class="stat-value">${maxSizeMB}MB</div>
                 <div class="stat-label">Max Size</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.usage_percent.toFixed(1)}%</div>
+                <div class="stat-value">${usagePercent}%</div>
                 <div class="stat-label">Usage</div>
             </div>
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <h3 style="margin-bottom: 0.75rem;">Current Configuration</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label" style="text-transform: uppercase; letter-spacing: 0.08em;">Backend</div>
+                    <div class="stat-value" style="font-size: 1.1rem;">${backendLabel}</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label" style="text-transform: uppercase; letter-spacing: 0.08em;">Default TTL</div>
+                    <div class="stat-value" style="font-size: 1.1rem;">${ttlLabel}</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label" style="text-transform: uppercase; letter-spacing: 0.08em;">Cleanup Interval</div>
+                    <div class="stat-value" style="font-size: 1.1rem;">${cleanupLabel}</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label" style="text-transform: uppercase; letter-spacing: 0.08em;">Storage Location</div>
+                    <div class="stat-value" style="font-size: 1.1rem; word-break: break-all;">${locationLabel}</div>
+                </div>
+            </div>
+            <p style="margin-top: 1rem; color: hsl(var(--muted-foreground)); font-size: 0.9rem;">
+                ${guidance}
+            </p>
         </div>
     `;
 
@@ -355,6 +752,75 @@ async function clearCache() {
         loadCacheStats();
     } catch (error) {
         // Error is already handled by apiRequest
+    }
+}
+
+async function invalidateCacheByUrl(event) {
+    event.preventDefault();
+
+    const urlInput = document.getElementById('cache-url');
+    const refreshCheckbox = document.getElementById('cache-refresh');
+    const resultEl = document.getElementById('cache-invalidate-result');
+
+    if (!urlInput) {
+        return;
+    }
+
+    const rawUrl = (urlInput.value || '').trim();
+    if (!rawUrl) {
+        showAlert('Please enter a URL to invalidate.', 'error');
+        return;
+    }
+
+    if (resultEl) {
+        resultEl.textContent = '';
+        resultEl.style.color = 'hsl(var(--muted-foreground))';
+    }
+
+    try {
+        const response = await apiRequest('/cache/invalidate', {
+            method: 'POST',
+            body: JSON.stringify({
+                url: rawUrl,
+                refresh: refreshCheckbox ? refreshCheckbox.checked : false,
+            }),
+        });
+
+        if (!response) {
+            return;
+        }
+
+        const cleared = response.cleared ?? 0;
+        const refreshed = Boolean(response.refreshed);
+        const refreshError = response.refresh_error;
+
+        const message = response.message || `Cleared ${cleared} cache entries`;
+        showAlert(message);
+
+        const hasRefreshedFlag = Object.prototype.hasOwnProperty.call(response, 'refreshed');
+
+        if (resultEl) {
+            const parts = [`Cleared ${cleared} entr${cleared === 1 ? 'y' : 'ies'}`];
+            if (hasRefreshedFlag) {
+                if (refreshed) {
+                    parts.push('cache refreshed');
+                } else if (refreshError) {
+                    parts.push(`refresh failed: ${refreshError}`);
+                } else {
+                    parts.push('refresh skipped');
+                }
+            }
+            resultEl.textContent = parts.join(' · ');
+            resultEl.style.color = 'hsl(var(--muted-foreground))';
+        }
+
+        loadCacheStats();
+    } catch (error) {
+        showAlert(error && error.message ? error.message : 'Failed to update cache.', 'error');
+        if (resultEl) {
+            resultEl.textContent = error && error.message ? error.message : 'Failed to update cache.';
+            resultEl.style.color = 'red';
+        }
     }
 }
 

@@ -4,14 +4,17 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
 	"saddy/pkg/cache"
 	"saddy/pkg/config"
+	"saddy/pkg/stats"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,14 +25,16 @@ type ReverseProxy struct {
 	cache  cache.Storage
 	server *http.Server
 	engine *gin.Engine
+	stats  *stats.TrafficTracker
 }
 
 // NewReverseProxy creates a new reverse proxy instance with the given configuration.
-func NewReverseProxy(cfg *config.Config, cacheStorage cache.Storage) *ReverseProxy {
+func NewReverseProxy(cfg *config.Config, cacheStorage cache.Storage, statsTracker *stats.TrafficTracker) *ReverseProxy {
 	proxy := &ReverseProxy{
 		config: cfg,
 		cache:  cacheStorage,
 		engine: gin.New(),
+		stats:  statsTracker,
 	}
 
 	proxy.setupRoutes()
@@ -80,8 +85,11 @@ func (rp *ReverseProxy) handleProxy(c *gin.Context) {
 		return
 	}
 
+	isPage := rp.shouldTrackRequest(c.Request)
+	cacheEligible := rule.Cache.Enabled && c.Request.Method == http.MethodGet
+
 	// Check cache if enabled
-	if rule.Cache.Enabled && c.Request.Method == "GET" {
+	if cacheEligible {
 		cacheKey := rp.generateCacheKey(c.Request, rule.Domain)
 		if cachedItem := rp.cache.GetItem(cacheKey); cachedItem != nil {
 			// Restore headers
@@ -97,6 +105,8 @@ func (rp *ReverseProxy) handleProxy(c *gin.Context) {
 				contentType = "application/octet-stream"
 			}
 			c.Data(cachedItem.StatusCode, contentType, cachedItem.Value)
+
+			rp.recordPageView(isPage, c.ClientIP(), len(cachedItem.Value), cacheEligible, true)
 			return
 		}
 	}
@@ -110,7 +120,8 @@ func (rp *ReverseProxy) handleProxy(c *gin.Context) {
 
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	proxy.ErrorHandler = func(_ http.ResponseWriter, _ *http.Request, err error) {
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		log.Printf("Proxy error for %s %s: %v", req.Method, req.URL.Path, err)
 		c.JSON(502, gin.H{"error": "Bad Gateway: " + err.Error()})
 	}
 
@@ -131,11 +142,14 @@ func (rp *ReverseProxy) handleProxy(c *gin.Context) {
 	}
 
 	// Cache response if enabled
-	if rule.Cache.Enabled && c.Request.Method == "GET" {
+	if cacheEligible {
 		rp.cacheResponse(c, proxy, rule)
-	} else {
-		proxy.ServeHTTP(c.Writer, c.Request)
+		rp.recordPageView(isPage, c.ClientIP(), c.Writer.Size(), cacheEligible, false)
+		return
 	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
+	rp.recordPageView(isPage, c.ClientIP(), c.Writer.Size(), cacheEligible, false)
 }
 
 func (rp *ReverseProxy) cacheResponse(c *gin.Context, proxy *httputil.ReverseProxy, rule *config.ProxyRule) {
@@ -215,6 +229,55 @@ func (rw *responseWriter) WriteHeader(statusCode int) {
 	rw.statusCode = statusCode
 	rw.captureHeaders()
 	rw.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (rp *ReverseProxy) shouldTrackRequest(req *http.Request) bool {
+	if req.Method != http.MethodGet {
+		return false
+	}
+
+	lowerPath := strings.ToLower(req.URL.Path)
+	if strings.HasPrefix(lowerPath, "/api") {
+		return false
+	}
+
+	ext := strings.ToLower(path.Ext(lowerPath))
+	if ext != "" && !strings.HasSuffix(lowerPath, "/") {
+		switch ext {
+		case ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".json", ".xml", ".woff", ".woff2", ".ttf", ".map", ".txt", ".pdf", ".zip":
+			return false
+		}
+	}
+
+	accept := req.Header.Get("Accept")
+	accept = strings.ToLower(accept)
+	if accept != "" {
+		if strings.Contains(accept, "application/json") ||
+			strings.Contains(accept, "image/") ||
+			strings.Contains(accept, "text/css") {
+			return false
+		}
+		if strings.Contains(accept, "text/html") || strings.Contains(accept, "application/xhtml+xml") {
+			return true
+		}
+	}
+
+	// If no explicit Accept header, treat paths without a static extension as page views.
+	if ext == "" || ext == ".html" || ext == ".htm" || strings.HasSuffix(lowerPath, "/") {
+		return true
+	}
+
+	return false
+}
+
+func (rp *ReverseProxy) recordPageView(shouldTrack bool, ip string, bytes int, cacheEnabled bool, cacheHit bool) {
+	if !shouldTrack || rp.stats == nil {
+		return
+	}
+	if bytes < 0 {
+		bytes = 0
+	}
+	rp.stats.RecordPageView(time.Now(), ip, bytes, cacheEnabled, cacheHit)
 }
 
 // Start starts the reverse proxy server.

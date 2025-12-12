@@ -113,6 +113,36 @@ body {
     margin-top: 0;
 }
 
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-header h2 {
+    margin-bottom: 0;
+}
+
+.chart-container {
+    margin-top: 1.5rem;
+    position: relative;
+    min-height: 200px;
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    height: 200px !important;
+}
+
+.chart-container h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: hsl(var(--foreground));
+}
+
 .btn {
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));

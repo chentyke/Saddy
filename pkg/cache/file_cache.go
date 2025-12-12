@@ -254,6 +254,38 @@ func (fc *FileCache) Delete(key string) {
 	}
 }
 
+// DeleteByPrefix removes cached items whose original key matches the prefix.
+func (fc *FileCache) DeleteByPrefix(prefix string) int {
+	fc.mutex.Lock()
+	defer fc.mutex.Unlock()
+
+	removed := 0
+
+	for hashKey, item := range fc.items {
+		if item == nil {
+			continue
+		}
+
+		if matchesCachePrefix(item.Key, prefix) {
+			dataFilePath := filepath.Join(fc.cacheDir, "data", item.DataFile)
+			_ = os.Remove(dataFilePath) //nolint:errcheck
+
+			fc.currentSize -= int64(item.Size)
+			delete(fc.items, hashKey)
+			removed++
+		}
+	}
+
+	if removed > 0 {
+		if fc.currentSize < 0 {
+			fc.currentSize = 0
+		}
+		_ = fc.saveIndex() //nolint:errcheck
+	}
+
+	return removed
+}
+
 // Clear removes all items from cache
 func (fc *FileCache) Clear() {
 	fc.mutex.Lock()
@@ -304,13 +336,16 @@ func (fc *FileCache) Stats() map[string]interface{} {
 	defer fc.mutex.RUnlock()
 
 	return map[string]interface{}{
-		"items_count":   len(fc.items),
-		"current_size":  fc.currentSize,
-		"max_size":      fc.maxSize,
-		"usage_percent": float64(fc.currentSize) / float64(fc.maxSize) * 100,
-		"storage_type":  "file",
-		"persistent":    fc.persistent,
-		"cache_dir":     fc.cacheDir,
+		"items_count":                 len(fc.items),
+		"current_size":                fc.currentSize,
+		"max_size":                    fc.maxSize,
+		"usage_percent":               float64(fc.currentSize) / float64(fc.maxSize) * 100,
+		"storage_type":                "file",
+		"persistent":                  fc.persistent,
+		"default_ttl_seconds":         int(fc.ttl.Seconds()),
+		"cleanup_interval_seconds":    0,
+		"cache_dir":                   fc.cacheDir,
+		"supports_partial_invalidate": true,
 	}
 }
 

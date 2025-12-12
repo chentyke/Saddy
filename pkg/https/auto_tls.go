@@ -235,9 +235,10 @@ func (a *AutoTLS) GenerateSelfSignedCert(domain string) error {
 	return nil
 }
 
-func generateSelfSignedCertificate(_ string) ([]byte, []byte) {
+func generateSelfSignedCertificate(domain string) ([]byte, []byte) {
 	// This is a placeholder - in a real implementation you would
 	// use crypto/tls or crypto/x509 to generate actual certificates
+	log.Printf("Warning: generateSelfSignedCertificate is not fully implemented for domain: %s", domain)
 	return []byte("self-signed-cert"), []byte("self-signed-key")
 }
 

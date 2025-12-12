@@ -86,6 +86,12 @@ cache:
   # false: 按 TTL 自动过期
   persistent: true
 
+# 流量统计配置
+stats:
+  retention_days: 30                # 统计数据保留天数
+  storage_path: "./data/traffic.json"  # 持久化存储路径
+  flush_interval_seconds: 60        # 写入磁盘的间隔（秒）
+
 # Web 管理界面配置
 web_ui:
   enabled: true

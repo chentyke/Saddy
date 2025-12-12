@@ -18,6 +18,11 @@ cache:
   cache_dir: "./cache"          # Directory for persistent cache (only for file storage)
   persistent: true              # If true, cache never expires (manual refresh only)
 
+stats:
+  retention_days: 30
+  storage_path: "./data/traffic.json"
+  flush_interval_seconds: 60
+
 web_ui:
   enabled: true
   username: "admin"

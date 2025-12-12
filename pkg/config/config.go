@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -53,6 +54,13 @@ type CacheConfig struct {
 	Persistent      bool   `yaml:"persistent" json:"persistent"` // If true, cache never expires
 }
 
+// StatsConfig describes how traffic statistics are retained and persisted.
+type StatsConfig struct {
+	RetentionDays        int    `yaml:"retention_days" json:"retention_days"`
+	StoragePath          string `yaml:"storage_path" json:"storage_path"`
+	FlushIntervalSeconds int    `yaml:"flush_interval_seconds" json:"flush_interval_seconds"`
+}
+
 // WebUIConfig defines configuration for the web admin interface.
 type WebUIConfig struct {
 	Enabled  bool   `yaml:"enabled" json:"enabled"`
@@ -71,6 +79,7 @@ type Config struct {
 	Proxy  ProxyConfig  `yaml:"proxy" json:"proxy"`
 	Cache  CacheConfig  `yaml:"cache" json:"cache"`
 	WebUI  WebUIConfig  `yaml:"web_ui" json:"web_ui"`
+	Stats  StatsConfig  `yaml:"stats" json:"stats"`
 }
 
 // LoadConfig loads configuration from a YAML file.
@@ -95,6 +104,15 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if config.Server.AdminPort == 0 {
 		config.Server.AdminPort = 8081
+	}
+	if config.Stats.RetentionDays <= 0 {
+		config.Stats.RetentionDays = 30
+	}
+	if config.Stats.FlushIntervalSeconds <= 0 {
+		config.Stats.FlushIntervalSeconds = 60
+	}
+	if config.Stats.StoragePath == "" {
+		config.Stats.StoragePath = filepath.ToSlash(filepath.Join("data", "traffic.json"))
 	}
 
 	return &config, nil

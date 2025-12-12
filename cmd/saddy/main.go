@@ -17,6 +17,7 @@ import (
 	"saddy/pkg/config"
 	"saddy/pkg/https"
 	"saddy/pkg/proxy"
+	"saddy/pkg/stats"
 	"saddy/pkg/web"
 )
 
@@ -45,14 +46,19 @@ func main() {
 	// Initialize components
 	cacheInstance := initializeCache(cfg)
 	tlsInstance := initializeTLS(cfg)
+	statsTracker := stats.NewTrafficTracker(stats.TrackerOptions{
+		Retention:     time.Duration(cfg.Stats.RetentionDays) * 24 * time.Hour,
+		StoragePath:   cfg.Stats.StoragePath,
+		FlushInterval: time.Duration(cfg.Stats.FlushIntervalSeconds) * time.Second,
+	})
 
 	// Initialize servers
-	reverseProxy := proxy.NewReverseProxy(cfg, cacheInstance)
-	adminAPI := api.NewAdminAPI(cfg, cacheInstance, tlsInstance)
+	reverseProxy := proxy.NewReverseProxy(cfg, cacheInstance, statsTracker)
+	adminAPI := api.NewAdminAPI(cfg, cacheInstance, tlsInstance, statsTracker)
 	adminServer := web.NewAdminServer(adminAPI, cfg)
 
 	// Start servers and wait for shutdown
-	runServers(cfg, reverseProxy, adminServer, tlsInstance, cacheInstance)
+	runServers(cfg, reverseProxy, adminServer, tlsInstance, cacheInstance, statsTracker)
 }
 
 func initializeCache(cfg *config.Config) cache.Storage {
@@ -106,10 +112,11 @@ func initializeTLS(cfg *config.Config) *https.AutoTLS {
 	return tlsInstance
 }
 
-func runServers(cfg *config.Config, reverseProxy *proxy.ReverseProxy, adminServer *web.AdminServer, tlsInstance *https.AutoTLS, cacheInstance cache.Storage) {
+func runServers(cfg *config.Config, reverseProxy *proxy.ReverseProxy, adminServer *web.AdminServer, tlsInstance *https.AutoTLS, cacheInstance cache.Storage, statsTracker *stats.TrafficTracker) {
 	// Create context for graceful shutdown
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	_ = ctx // Context reserved for future use in graceful shutdown
 
 	// Start servers in goroutines
 	errChan := make(chan error, 2)
@@ -129,7 +136,7 @@ func runServers(cfg *config.Config, reverseProxy *proxy.ReverseProxy, adminServe
 	waitForShutdownSignal(errChan, cancel)
 
 	// Graceful shutdown
-	shutdownServers(reverseProxy, cacheInstance)
+	shutdownServers(reverseProxy, cacheInstance, statsTracker)
 }
 
 func startReverseProxy(cfg *config.Config, reverseProxy *proxy.ReverseProxy, tlsInstance *https.AutoTLS, errChan chan error) {
@@ -206,7 +213,7 @@ func waitForShutdownSignal(errChan chan error, cancel context.CancelFunc) {
 	}
 }
 
-func shutdownServers(reverseProxy *proxy.ReverseProxy, cacheInstance cache.Storage) {
+func shutdownServers(reverseProxy *proxy.ReverseProxy, cacheInstance cache.Storage, statsTracker *stats.TrafficTracker) {
 	log.Println("Shutting down servers...")
 
 	// Shutdown reverse proxy
@@ -217,6 +224,13 @@ func shutdownServers(reverseProxy *proxy.ReverseProxy, cacheInstance cache.Stora
 	// Shutdown cache
 	if cacheInstance != nil {
 		cacheInstance.Stop()
+	}
+
+	// Persist traffic statistics
+	if statsTracker != nil {
+		if err := statsTracker.Flush(); err != nil {
+			log.Printf("Error flushing traffic statistics: %v", err)
+		}
 	}
 
 	log.Println("Saddy stopped gracefully")

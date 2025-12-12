@@ -2,13 +2,18 @@
 package api
 
 import (
+	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"saddy/pkg/cache"
 	"saddy/pkg/config"
 	"saddy/pkg/https"
+	"saddy/pkg/stats"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,14 +23,16 @@ type AdminAPI struct {
 	config *config.Config
 	cache  cache.Storage
 	tls    *https.AutoTLS
+	stats  *stats.TrafficTracker
 }
 
 // NewAdminAPI creates a new AdminAPI instance with the given configuration and services.
-func NewAdminAPI(cfg *config.Config, cacheStorage cache.Storage, tls *https.AutoTLS) *AdminAPI {
+func NewAdminAPI(cfg *config.Config, cacheStorage cache.Storage, tls *https.AutoTLS, tracker *stats.TrafficTracker) *AdminAPI {
 	return &AdminAPI{
 		config: cfg,
 		cache:  cacheStorage,
 		tls:    tls,
+		stats:  tracker,
 	}
 }
 
@@ -60,6 +67,7 @@ func (a *AdminAPI) SetupRoutes(router *gin.RouterGroup) {
 	{
 		cacheGroup.GET("/stats", a.getCacheStats)
 		cacheGroup.DELETE("/", a.clearCache)
+		cacheGroup.POST("/invalidate", a.invalidateCacheByURL)
 		cacheGroup.DELETE("/:key", a.deleteCacheKey)
 	}
 
@@ -81,6 +89,13 @@ func (a *AdminAPI) SetupRoutes(router *gin.RouterGroup) {
 	{
 		systemGroup.GET("/status", a.getSystemStatus)
 		systemGroup.GET("/health", a.getHealth)
+	}
+
+	// Stats endpoints
+	statsGroup := router.Group("/stats")
+	statsGroup.Use(auth)
+	{
+		statsGroup.GET("/traffic", a.getTrafficStats)
 	}
 
 	// Auth endpoints (without BasicAuth middleware to avoid browser popup)
@@ -165,6 +180,41 @@ func (a *AdminAPI) updateProxyRule(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Proxy rule updated successfully"})
 }
 
+func (a *AdminAPI) getTrafficStats(c *gin.Context) {
+	if a.stats == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "traffic tracking not available",
+		})
+		return
+	}
+
+	duration := 24 * time.Hour
+	if rangeParam := c.Query("range"); rangeParam != "" {
+		if parsed, err := parseDurationWithDays(rangeParam); err == nil && parsed > 0 {
+			duration = parsed
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range parameter"})
+			return
+		}
+	}
+
+	summary := a.stats.GetSummary(duration)
+	c.JSON(http.StatusOK, summary)
+}
+
+func parseDurationWithDays(input string) (time.Duration, error) {
+	input = strings.TrimSpace(strings.ToLower(input))
+	if strings.HasSuffix(input, "d") {
+		daysStr := strings.TrimSuffix(input, "d")
+		days, err := time.ParseDuration(daysStr + "h")
+		if err != nil {
+			return 0, err
+		}
+		return days * 24, nil
+	}
+	return time.ParseDuration(input)
+}
+
 func (a *AdminAPI) deleteProxyRule(c *gin.Context) {
 	domain := c.Param("domain")
 
@@ -207,6 +257,76 @@ func (a *AdminAPI) clearCache(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Cache cleared successfully"})
 }
 
+func (a *AdminAPI) invalidateCacheByURL(c *gin.Context) {
+	if a.cache == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cache not available"})
+		return
+	}
+
+	var payload struct {
+		URL     string `json:"url" binding:"required"`
+		Refresh bool   `json:"refresh"`
+	}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	targetURL, err := parseInvalidateURL(payload.URL)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	domain := strings.ToLower(targetURL.Hostname())
+	if domain == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "URL must include a valid domain"})
+		return
+	}
+
+	rule := a.config.GetProxyRule(domain)
+	if rule == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No proxy rule found for domain %s", domain)})
+		return
+	}
+
+	cachePath := targetURL.EscapedPath()
+	if cachePath == "" {
+		cachePath = "/"
+	}
+
+	prefix := fmt.Sprintf("%s:%s:%s", domain, http.MethodGet, cachePath)
+	removed := a.cache.DeleteByPrefix(prefix)
+
+	response := gin.H{
+		"message":          fmt.Sprintf("Cleared %d cache entries", removed),
+		"cleared":          removed,
+		"domain":           domain,
+		"path":             cachePath,
+		"cache_key_prefix": prefix,
+	}
+
+	if payload.Refresh {
+		if !rule.Cache.Enabled {
+			response["refreshed"] = false
+			response["refresh_error"] = "cache is disabled for this domain"
+			response["message"] = fmt.Sprintf("Cleared %d cache entries; refresh skipped because caching is disabled", removed)
+		} else {
+			if err := a.refreshCacheForURL(targetURL, domain); err != nil {
+				response["refreshed"] = false
+				response["refresh_error"] = err.Error()
+				response["message"] = fmt.Sprintf("Cleared %d cache entries; refresh failed", removed)
+			} else {
+				response["refreshed"] = true
+				response["message"] = fmt.Sprintf("Cleared %d cache entries and refreshed content", removed)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 func (a *AdminAPI) deleteCacheKey(c *gin.Context) {
 	if a.cache == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cache not available"})
@@ -216,6 +336,90 @@ func (a *AdminAPI) deleteCacheKey(c *gin.Context) {
 	key := c.Param("key")
 	a.cache.Delete(key)
 	c.JSON(http.StatusOK, gin.H{"message": "Cache key deleted successfully"})
+}
+
+func parseInvalidateURL(raw string) (*url.URL, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+
+	if !strings.Contains(trimmed, "://") {
+		trimmed = "https://" + trimmed
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("invalid url: %w", err)
+	}
+
+	if parsed.Host == "" {
+		return nil, fmt.Errorf("url must include a host")
+	}
+
+	if parsed.Path == "" {
+		parsed.Path = "/"
+	}
+
+	return parsed, nil
+}
+
+func (a *AdminAPI) refreshCacheForURL(target *url.URL, host string) error {
+	loopbackHost := a.proxyLoopbackHost()
+	if loopbackHost == "" {
+		return fmt.Errorf("unable to resolve loopback host")
+	}
+
+	if a.config.Server.Port <= 0 {
+		return fmt.Errorf("proxy server port is not configured")
+	}
+
+	path := target.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+
+	proxyURL := &url.URL{
+		Scheme:   "http",
+		Host:     net.JoinHostPort(loopbackHost, fmt.Sprintf("%d", a.config.Server.Port)),
+		Path:     path,
+		RawQuery: target.RawQuery,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, proxyURL.String(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to build refresh request: %w", err)
+	}
+
+	req.Host = host
+	req.Header.Set("User-Agent", "Saddy-Cache-Refresh/1.0")
+	req.Header.Set("X-Saddy-Cache-Refresh", "1")
+
+	client := &http.Client{
+		Timeout: 20 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("refresh request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("refresh request returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (a *AdminAPI) proxyLoopbackHost() string {
+	host := strings.TrimSpace(a.config.Server.Host)
+	if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" || host == "*" {
+		return "127.0.0.1"
+	}
+	return host
 }
 
 func (a *AdminAPI) getTLSDomains(c *gin.Context) {

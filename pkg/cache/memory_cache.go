@@ -197,6 +197,31 @@ func (c *Cache) Delete(key string) {
 	}
 }
 
+// DeleteByPrefix removes all items whose original key matches the provided prefix.
+func (c *Cache) DeleteByPrefix(prefix string) int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	removed := 0
+
+	for hashKey, item := range c.items {
+		if item == nil {
+			continue
+		}
+		if matchesCachePrefix(item.Key, prefix) {
+			delete(c.items, hashKey)
+			c.currentSize -= int64(item.Size)
+			removed++
+		}
+	}
+
+	if c.currentSize < 0 {
+		c.currentSize = 0
+	}
+
+	return removed
+}
+
 // Clear removes all items from the cache.
 func (c *Cache) Clear() {
 	c.mutex.Lock()
@@ -258,10 +283,16 @@ func (c *Cache) Stats() map[string]interface{} {
 	defer c.mutex.RUnlock()
 
 	return map[string]interface{}{
-		"items_count":   len(c.items),
-		"current_size":  c.currentSize,
-		"max_size":      c.maxSize,
-		"usage_percent": float64(c.currentSize) / float64(c.maxSize) * 100,
+		"items_count":                 len(c.items),
+		"current_size":                c.currentSize,
+		"max_size":                    c.maxSize,
+		"usage_percent":               float64(c.currentSize) / float64(c.maxSize) * 100,
+		"storage_type":                "memory",
+		"persistent":                  false,
+		"default_ttl_seconds":         int(c.ttl.Seconds()),
+		"cleanup_interval_seconds":    int(c.cleanupInterval.Seconds()),
+		"cache_dir":                   "",
+		"supports_partial_invalidate": true,
 	}
 }
 

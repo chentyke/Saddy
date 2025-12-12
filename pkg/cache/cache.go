@@ -12,6 +12,7 @@ type Storage interface {
 	Get(key string) []byte
 	GetItem(key string) *CacheItem
 	Delete(key string)
+	DeleteByPrefix(prefix string) int
 	Clear()
 	Stats() map[string]interface{}
 	Stop()
