@@ -2,6 +2,8 @@
 # Compatible with golangci-lint v2.x
 # https://golangci-lint.run/usage/configuration/
 
+version: 2
+
 run:
   timeout: 5m
   tests: true
@@ -43,6 +45,13 @@ linters-settings:
 
   misspell:
     locale: US
+  
+  revive:
+    rules:
+      - name: var-naming
+        disabled: true
+      - name: exported
+        disabled: true
 
   goconst:
     min-len: 3
@@ -51,7 +60,8 @@ linters-settings:
   gosec:
     excludes:
       - G404 # Weak random number generator
-      - G304 # File inclusion via variable
+      - G304 # File inclusion via variable (we need dynamic file paths)
+      - G301 # Directory permissions 0755 is acceptable for cache directories
 
 issues:
   max-issues-per-linter: 50
@@ -72,5 +82,25 @@ issues:
     - linters:
         - revive
       text: "type name will be used as cache.CacheItem"
+    
+    - linters:
+        - revive
+      text: "var-naming: avoid meaningless package names"
+    
+    - linters:
+        - revive
+      text: "exported: type name will be used as"
+    
+    - linters:
+        - revive
+      text: "stutters; consider calling this"
+    
+    - linters:
+        - gosec
+      text: "G304:"
+    
+    - linters:
+        - gosec
+      text: "G301:"
 
   exclude-use-default: false

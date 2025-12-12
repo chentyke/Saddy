@@ -16,6 +16,8 @@ func generateHash(key string) string {
 }
 
 // CacheItem represents a cached item with metadata.
+//
+//nolint:revive // CacheItem is intentionally named to be clear in the cache package context
 type CacheItem struct {
 	Key        string
 	Value      []byte

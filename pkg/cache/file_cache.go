@@ -75,7 +75,7 @@ func (fc *FileCache) loadFromDisk() error {
 		return nil
 	}
 
-	data, err := os.ReadFile(indexFile)
+	data, err := os.ReadFile(indexFile) // #nosec G304 -- indexFile is from configured cache directory
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (fc *FileCache) GetItem(key string) *CacheItem {
 
 	// Read data from file
 	dataFilePath := filepath.Join(fc.cacheDir, "data", item.DataFile)
-	data, err := os.ReadFile(dataFilePath)
+	data, err := os.ReadFile(dataFilePath) // #nosec G304 -- dataFilePath is from configured cache directory
 	if err != nil {
 		// File not found or error, remove from index
 		fc.Delete(key)

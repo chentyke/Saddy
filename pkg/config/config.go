@@ -84,7 +84,7 @@ type Config struct {
 
 // LoadConfig loads configuration from a YAML file.
 func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is from command line flag
 	if err != nil {
 		return nil, err
 	}

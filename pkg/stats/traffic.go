@@ -324,6 +324,7 @@ func (t *TrafficTracker) writeToDisk(state persistedState) error {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 
+	// #nosec G301 -- 0755 is acceptable for cache directories
 	if err := os.MkdirAll(filepath.Dir(t.storagePath), 0o755); err != nil {
 		return fmt.Errorf("ensure storage directory: %w", err)
 	}

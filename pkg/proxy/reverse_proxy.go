@@ -120,7 +120,7 @@ func (rp *ReverseProxy) handleProxy(c *gin.Context) {
 
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+	proxy.ErrorHandler = func(_ http.ResponseWriter, req *http.Request, err error) {
 		log.Printf("Proxy error for %s %s: %v", req.Method, req.URL.Path, err)
 		c.JSON(502, gin.H{"error": "Bad Gateway: " + err.Error()})
 	}

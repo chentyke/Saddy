@@ -1,4 +1,6 @@
 // Package api provides RESTful API endpoints for managing Saddy configuration and monitoring.
+//
+//nolint:revive // Package name 'api' is clear and commonly used
 package api
 
 import (
