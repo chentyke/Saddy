@@ -204,7 +204,7 @@ func (rw *responseWriter) captureHeaders() {
 		return
 	}
 	// Capture important headers
-	for key, values := range rw.ResponseWriter.Header() {
+	for key, values := range rw.Header() {
 		if len(values) > 0 {
 			// Save important headers like Content-Type, Content-Encoding, etc.
 			switch key {
